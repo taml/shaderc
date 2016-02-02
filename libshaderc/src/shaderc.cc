@@ -180,17 +180,40 @@ class InternalFileIncluder : public shaderc_util::CountingIncluder {
 
   // Find filename in search path and returns its contents.
   std::pair<std::string, std::string> include_delegate(
-      const char* filename) const override {
+      const char* filename) {
     if (!AreValidCallbacks())
       return std::make_pair<std::string, std::string>(
           "", "unexpected include directive");
     shaderc_includer_response* data =
-        get_includer_response_(user_data_, filename);
+        get_includer_response_(user_data_, filename, "");
     std::pair<std::string, std::string> entry =
         std::make_pair(std::string(data->path, data->path_length),
                        std::string(data->content, data->content_length));
     release_includer_response_(user_data_, data);
     return entry;
+  }
+
+  IncludeResult include_delegate(const char* filename, IncludeType,
+                                         const char* current_file) {
+    if (!AreValidCallbacks()) {
+      return IncludeResult({"", "unexpected include directive",
+                            sizeof("unexpected include directive") - 1,
+                            nullptr});
+    }
+
+    shaderc_includer_response* data =
+        get_includer_response_(user_data_, filename, current_file);
+    return IncludeResult({std::string(data->path, data->path_length),
+      data->content, data->content_length, data});
+  }
+
+  void release_delegate(const IncludeResult* result) {
+    // If we passed down null user-data then we can ignore this.
+    if (result->user_data == nullptr) {
+      return;
+    }
+    release_includer_response_(
+        user_data_, static_cast<shaderc_includer_response*>(result->user_data));
   }
 
   const shaderc_includer_response_get_fn get_includer_response_;
@@ -327,22 +350,24 @@ shaderc_spv_module_t shaderc_compile_into_spv(
         shaderc_util::string_piece(source_text, source_text + source_text_size);
     StageDeducer stage_deducer(shader_kind);
     if (additional_options) {
+      InternalFileIncluder includer(additional_options->get_includer_response,
+                               additional_options->release_includer_response,
+                               additional_options->includer_user_data);
       compilation_succeeded = additional_options->compiler.Compile(
           source_string, forced_stage, input_file_name_str,
           // stage_deducer has a flag: error_, which we need to check later.
           // We need to make this a reference wrapper, so that std::function
           // won't make a copy for this callable object.
           std::ref(stage_deducer),
-          InternalFileIncluder(additional_options->get_includer_response,
-                               additional_options->release_includer_response,
-                               additional_options->includer_user_data),
+          &includer,
           &output, &errors, &total_warnings, &total_errors,
           compiler->initializer);
     } else {
+      InternalFileIncluder includer;
       // Compile with default options.
       compilation_succeeded = shaderc_util::Compiler().Compile(
           source_string, forced_stage, input_file_name_str,
-          std::ref(stage_deducer), InternalFileIncluder(), &output, &errors,
+          std::ref(stage_deducer), &includer, &output, &errors,
           &total_warnings, &total_errors, compiler->initializer);
     }
 

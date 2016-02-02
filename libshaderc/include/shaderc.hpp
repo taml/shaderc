@@ -148,7 +148,10 @@ class CompileOptions {
     includer_ = std::move(includer);
     shaderc_compile_options_set_includer_callbacks(
         options_,
-        [](void* user_data, const char* filename) {
+        [](void* user_data, const char* filename,
+           const char* /*current_file*/) {
+          //TODO(awoloszyn): Hook up current_file once we want to start
+          // handling relative includes.
           auto* includer = static_cast<IncluderInterface*>(user_data);
           return includer->GetInclude(filename);
         },

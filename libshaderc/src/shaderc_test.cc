@@ -607,7 +607,8 @@ class TestIncluder {
 
   // Wrapper for the corresponding member function.
   static shaderc_includer_response* GetIncluderResponseWrapper(
-      void* user_data, const char* filename) {
+      void* user_data, const char* filename,
+      const char* /*current_file_name*/) {
     return static_cast<TestIncluder*>(user_data)->GetInclude(filename);
   }
 

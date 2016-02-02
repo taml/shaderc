@@ -74,9 +74,14 @@ class DummyCountingIncluder : public shaderc_util::CountingIncluder {
  private:
   // Returns a pair of empty strings.
   virtual std::pair<std::string, std::string> include_delegate(
-      const char*) const override {
+      const char*) {
     return std::make_pair(std::string(), std::string());
   }
+  virtual IncludeResult include_delegate(const char*, IncludeType,
+                                         const char*) {
+    return IncludeResult({"", "", 0, nullptr});
+  }
+  virtual void release_delegate(const IncludeResult* result) {}
 };
 
 // A test fixture for compiling GLSL shaders.
@@ -95,9 +100,10 @@ class CompilerTest : public testing::Test {
     size_t total_warnings = 0;
     size_t total_errors = 0;
     shaderc_util::GlslInitializer initializer;
+    DummyCountingIncluder includer;
     const bool result = compiler_.Compile(
         source, stage,
-        "shader", stage_callback, DummyCountingIncluder(), &out, &errors,
+        "shader", stage_callback, &includer, &out, &errors,
         &total_warnings, &total_errors, &initializer);
     errors_ = errors.str();
     return result;

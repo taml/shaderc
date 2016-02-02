@@ -24,9 +24,15 @@ namespace {
 class ConcreteCountingIncluder : public shaderc_util::CountingIncluder {
  public:
   std::pair<std::string, std::string> include_delegate(
-      const char* filename) const override {
+      const char* filename) {
     return std::make_pair<std::string, std::string>("", "Unexpected #include");
   }
+
+  IncludeResult include_delegate(const char*, IncludeType,
+                                         const char*) {
+    return IncludeResult({"", "", 0, nullptr});
+  }
+  void release_delegate(const IncludeResult* result) {}
 };
 
 TEST(CountingIncluderTest, InitialCount) {

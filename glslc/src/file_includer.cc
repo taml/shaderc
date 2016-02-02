@@ -18,30 +18,40 @@
 
 namespace glslc {
 
-shaderc_includer_response* FileIncluder::GetInclude(const char* filename) {
-  file_full_path_ = file_finder_.FindReadableFilepath(filename);
-  if (!file_full_path_.empty() &&
-      shaderc_util::ReadFile(file_full_path_, &file_content_)) {
-    response_ = {
-        file_full_path_.c_str(), file_full_path_.length(), file_content_.data(),
-        file_content_.size(),
-    };
-  } else {
-    char error_msg[] = "Cannot open or find include file.";
-    file_content_.assign(std::begin(error_msg), std::end(error_msg));
-    response_ = {
-        "", 0u, file_content_.data(), file_content_.size(),
-    };
-  }
-  return &response_;
+namespace {
+struct IncludeData {
+  std::string file_name;
+  std::vector<char> file_content;
+  shaderc_includer_response response;
+};
 }
 
-void FileIncluder::ReleaseInclude(shaderc_includer_response*) {
-  response_ = {
-      nullptr, 0u, nullptr, 0u,
-  };
-  file_content_.clear();
-  file_full_path_.clear();
+
+shaderc_includer_response* FileIncluder::GetInclude(const char* filename) {
+  std::unique_ptr<IncludeData> data =
+      std::unique_ptr<IncludeData>(new IncludeData());
+  data->file_name = file_finder_.FindReadableFilepath(filename);
+  if (!data->file_name.empty() &&
+      shaderc_util::ReadFile(data->file_name, &data->file_content)) {
+    IncludeData* dat = data.get();
+    data->response = {data->file_name.c_str(), data->file_name.length(),
+                      data->file_content.data(), data->file_content.size(),
+                      data.release()};
+    return &dat->response;
+  } else {
+    const char error_msg[] = "Cannot open or find include file.";
+    return new shaderc_includer_response(
+        {"", 0u, error_msg, sizeof(error_msg) - 1, nullptr});
+  }
+}
+
+void FileIncluder::ReleaseInclude(shaderc_includer_response* response) {
+  if (response && response->user_data) {
+    IncludeData* data = static_cast<IncludeData*>(response->user_data);
+    delete data;
+  } else {
+    delete response;
+  }
 }
 
 }  // namespace glslc

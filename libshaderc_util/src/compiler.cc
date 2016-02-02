@@ -113,7 +113,7 @@ bool Compiler::Compile(
     const std::function<EShLanguage(std::ostream* error_stream,
                                     const string_piece& error_tag)>&
         stage_callback,
-    const CountingIncluder& includer, std::ostream* output_stream,
+    CountingIncluder* includer, std::ostream* output_stream,
     std::ostream* error_stream, size_t* total_warnings,
     size_t* total_errors, GlslInitializer* initializer) const {
 
@@ -151,7 +151,7 @@ bool Compiler::Compile(
 
     preprocessed_shader =
         CleanupPreamble(preprocessed_shader, error_tag, pound_extension,
-                        includer.num_include_directives(), is_for_next_line);
+                        includer->num_include_directives(), is_for_next_line);
 
     if (preprocess_only_) {
       return shaderc_util::WriteFile(output_stream,
@@ -186,7 +186,7 @@ bool Compiler::Compile(
   bool success =
       shader.parse(&shaderc_util::kDefaultTBuiltInResource, default_version_,
                    default_profile_, force_version_profile_,
-                   kNotForwardCompatible, message_rules_, includer);
+                   kNotForwardCompatible, message_rules_, *includer);
 
   success &= PrintFilteredErrors(error_tag, error_stream, warnings_as_errors_,
                                  suppress_warnings_, shader.getInfoLog(),
@@ -249,7 +249,7 @@ void Compiler::SetSuppressWarnings() { suppress_warnings_ = true; }
 std::tuple<bool, std::string, std::string> Compiler::PreprocessShader(
     const std::string& error_tag, const string_piece& shader_source,
     const string_piece& shader_preamble,
-    const CountingIncluder& includer) const {
+    CountingIncluder* includer) const {
 
   // The stage does not matter for preprocessing.
   glslang::TShader shader(EShLangVertex);
@@ -270,7 +270,7 @@ std::tuple<bool, std::string, std::string> Compiler::PreprocessShader(
   const bool success = shader.preprocess(
       &shaderc_util::kDefaultTBuiltInResource, default_version_,
       default_profile_, force_version_profile_, kNotForwardCompatible, rules,
-      &preprocessed_shader, includer);
+      &preprocessed_shader, *includer);
 
   if (success) {
     return std::make_tuple(true, preprocessed_shader, shader.getInfoLog());

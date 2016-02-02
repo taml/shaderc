@@ -185,12 +185,13 @@ struct shaderc_includer_response {
   size_t path_length;
   const char* content;
   size_t content_length;
+  void * user_data;
 };
 
 // A function mapping a #include argument to its includer response.  The
 // includer retains memory ownership of the response object.
 typedef shaderc_includer_response* (*shaderc_includer_response_get_fn)(
-    void* user_data, const char* filename);
+    void* user_data, const char* filename, const char* current_file);
 
 // A function to destroy an includer response when it's no longer needed.
 typedef void (*shaderc_includer_response_release_fn)(

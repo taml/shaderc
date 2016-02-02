@@ -39,12 +39,6 @@ class FileIncluder : public shaderc::CompileOptions::IncluderInterface {
  private:
   // Used by GetInclude() to get the full filepath.
   const shaderc_util::FileFinder& file_finder_;
-  // Only one response needs to be kept alive due to the implementation of
-  // libshaderc's InternalFileIncluder::include_delegate, which make copies for
-  // the full path and content.
-  shaderc_includer_response response_;
-  std::vector<char> file_content_;
-  std::string file_full_path_;
 };
 
 }  // namespace glslc
